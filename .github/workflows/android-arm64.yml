@@ -23,7 +23,6 @@ jobs:
       - name: Setup Android SDK tools
         uses: android-actions/setup-android@v3
         with:
-          # setup-android@v3 installs `tools` by default, which is obsolete and fails on current SDK feeds.
           packages: platform-tools
 
       - name: Install Android NDK
@@ -44,6 +43,11 @@ jobs:
             ~/.cargo/git/db/
             native-spike/target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Generate UniFFI scaffolding for Android target
+        working-directory: ./native-spike
+        run: |
+          cargo build --target aarch64-linux-android --release
 
       - name: Build arm64 native library
         working-directory: ./native-spike
