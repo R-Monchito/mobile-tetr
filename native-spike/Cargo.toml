@@ -14,12 +14,15 @@ uniffi_build = "0.32"
 
 [dependencies]
 uniffi = { version = "0.32", features = ["default"] }
-uniffi_macros = { version = "0.32", optional = true }
+# The Rust source currently uses UDL + include_scaffolding. The local no-op
+# derives keep the legacy derive annotations source-compatible without adding a
+# second set of UniFFI trait implementations.
+uniffi_macros = { path = "uniffi_macros_compat" }
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 once_cell = { version = "1.19", optional = true }
 
 [features]
-default = ["uniffi_macros"]
+default = []
 wasm = ["wasm-bindgen", "serde", "serde-wasm-bindgen", "once_cell"]
