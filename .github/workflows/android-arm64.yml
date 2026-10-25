@@ -23,7 +23,7 @@ jobs:
       - name: Install Android NDK
         uses: android-actions/setup-android@v3
         with:
-          ndk-version: r27
+          ndk-version: '27.0.12077973'
 
       - name: Cache Cargo
         uses: actions/cache@v4
