@@ -20,10 +20,19 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - name: Install Android NDK
+      - name: Setup Android SDK tools
         uses: android-actions/setup-android@v3
         with:
-          ndk-version: '27.0.12077973'
+          # setup-android@v3 installs `tools` by default, which is obsolete and fails on current SDK feeds.
+          packages: platform-tools
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          NDK_ROOT="$ANDROID_SDK_ROOT/ndk/27.0.12077973"
+          echo "ANDROID_NDK_ROOT=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang" >> "$GITHUB_ENV"
 
       - name: Cache Cargo
         uses: actions/cache@v4
