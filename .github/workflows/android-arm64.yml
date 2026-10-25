@@ -1,0 +1,77 @@
+name: Build Android arm64 APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android-arm64:
+    name: Build Android arm64 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          ndk-version: r27
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            native-spike/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build arm64 native library
+        working-directory: ./native-spike
+        run: |
+          cargo build --target aarch64-linux-android --release
+
+      - name: Copy arm64 library to Android project
+        run: |
+          mkdir -p platform/android/app/src/main/jniLibs/arm64-v8a
+          cp native-spike/target/aarch64-linux-android/release/libtetrio_mobile_core.so \
+             platform/android/app/src/main/jniLibs/arm64-v8a/libtetrio_mobile_core.so
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build arm64 APK
+        working-directory: ./platform/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload arm64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-arm64-debug-apk
+          path: platform/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload arm64 library
+        uses: actions/upload-artifact@v4
+        with:
+          name: libtetrio-mobile-core-arm64
+          path: native-spike/target/aarch64-linux-android/release/libtetrio_mobile_core.so
+          retention-days: 30
