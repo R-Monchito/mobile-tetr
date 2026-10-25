@@ -53,7 +53,6 @@ pub struct EngineCommand {
     pub delta_ms: u32,
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Enum))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
@@ -392,16 +391,18 @@ pub struct EngineResult {
     pub error: Option<EngineError>,
 }
 
+use std::cell::RefCell;
+
 pub struct EngineSession {
-    snapshot: SnapshotContract,
+    snapshot: RefCell<SnapshotContract>,
 }
 
 impl EngineSession {
     pub fn new(initial: SnapshotContract) -> Self {
-        EngineSession { snapshot: initial }
+        EngineSession { snapshot: RefCell::new(initial) }
     }
 
-    pub fn capabilities() -> EngineCapabilities {
+    pub fn capabilities(&self) -> EngineCapabilities {
         EngineCapabilities {
             replay: true,
             deterministic_rng: true,
@@ -410,13 +411,14 @@ impl EngineSession {
     }
 
     pub fn snapshot(&self) -> SnapshotContract {
-        self.snapshot.clone()
+        self.snapshot.borrow().clone()
     }
 
-    pub fn apply_command(&mut self, command: EngineCommand) -> EngineResult {
-        if self.snapshot.game_over {
+    pub fn apply_command(&self, command: EngineCommand) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        if snapshot.game_over {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
@@ -435,57 +437,59 @@ impl EngineSession {
         }
     }
 
-    fn handle_tick(&mut self, delta_ms: u32) -> EngineResult {
-        let Some(piece) = self.snapshot.current_piece else {
+    fn handle_tick(&self, delta_ms: u32) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
         };
 
-        let grounded = self.snapshot.board.check_collision(&piece, 0, 1);
-        self.snapshot.lock_delay.advance(delta_ms, grounded);
+        let grounded = snapshot.board.check_collision(&piece, 0, 1);
+        snapshot.lock_delay.advance(delta_ms, grounded);
 
-        if self.snapshot.lock_delay.locked {
+        if snapshot.lock_delay.locked {
             return self.try_lock();
         }
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events: vec![],
             error: None,
         }
     }
 
-    fn try_move(&mut self, dx: i32) -> EngineResult {
-        let Some(mut piece) = self.snapshot.current_piece else {
+    fn try_move(&self, dx: i32) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
         };
 
-        if self.snapshot.board.check_collision(&piece, dx, 0) {
+        if snapshot.board.check_collision(&piece, dx, 0) {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: None,
             };
         }
 
         piece.x += dx;
-        self.snapshot
+        snapshot
             .lock_delay
-            .reset(self.snapshot.board.check_collision(&piece, 0, 1));
-        self.snapshot.current_piece = Some(piece);
-        self.snapshot.last_action = LastAction::Move;
-        self.snapshot.last_rotation_transition = None;
-        self.snapshot.kick_index = None;
+            .reset(snapshot.board.check_collision(&piece, 0, 1));
+        snapshot.current_piece = Some(piece);
+        snapshot.last_action = LastAction::Move;
+        snapshot.last_rotation_transition = None;
+        snapshot.kick_index = None;
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events: vec![EngineEvent {
                 kind: EngineEventKind::Moved,
                 value: dx.unsigned_abs(),
@@ -495,10 +499,11 @@ impl EngineSession {
         }
     }
 
-    fn try_rotate(&mut self, rot_delta: u8) -> EngineResult {
-        let Some(mut piece) = self.snapshot.current_piece else {
+    fn try_rotate(&self, rot_delta: u8) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
@@ -509,17 +514,17 @@ impl EngineSession {
         let kicks = piece.piece_type.wall_kicks(from_rot, to_rot);
 
         for (i, (kx, ky)) in kicks.iter().enumerate() {
-            if !self.snapshot.board.check_collision(&piece, *kx, *ky) {
+            if !snapshot.board.check_collision(&piece, *kx, *ky) {
                 piece.x += kx;
                 piece.y += ky;
                 piece.rotation = to_rot;
-                self.snapshot
+                snapshot
                     .lock_delay
-                    .reset(self.snapshot.board.check_collision(&piece, 0, 1));
-                self.snapshot.current_piece = Some(piece);
-                self.snapshot.last_action = LastAction::Rotate;
-                self.snapshot.last_rotation_transition = Some(format!("{}->{}", from_rot, to_rot));
-                self.snapshot.kick_index = Some(i as u8);
+                    .reset(snapshot.board.check_collision(&piece, 0, 1));
+                snapshot.current_piece = Some(piece);
+                snapshot.last_action = LastAction::Rotate;
+                snapshot.last_rotation_transition = Some(format!("{}->{}", from_rot, to_rot));
+                snapshot.kick_index = Some(i as u8);
 
                 return EngineResult {
                     snapshot: self.snapshot.clone(),
@@ -540,40 +545,41 @@ impl EngineSession {
         }
     }
 
-    fn try_soft_drop(&mut self) -> EngineResult {
-        let Some(mut piece) = self.snapshot.current_piece else {
+    fn try_soft_drop(&self) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
         };
 
         let mut drop = 0;
-        while !self.snapshot.board.check_collision(&piece, 0, drop + 1) {
+        while !snapshot.board.check_collision(&piece, 0, drop + 1) {
             drop += 1;
         }
 
         if drop == 0 {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: None,
             };
         }
 
         piece.y += drop;
-        self.snapshot.soft_drop_cells += drop as u32;
-        self.snapshot
+        snapshot.soft_drop_cells += drop as u32;
+        snapshot
             .lock_delay
-            .reset(self.snapshot.board.check_collision(&piece, 0, 1));
-        self.snapshot.current_piece = Some(piece);
-        self.snapshot.last_action = LastAction::Drop;
-        self.snapshot.last_rotation_transition = None;
-        self.snapshot.kick_index = None;
+            .reset(snapshot.board.check_collision(&piece, 0, 1));
+        snapshot.current_piece = Some(piece);
+        snapshot.last_action = LastAction::Drop;
+        snapshot.last_rotation_transition = None;
+        snapshot.kick_index = None;
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events: vec![EngineEvent {
                 kind: EngineEventKind::SoftDropped,
                 value: drop as u32,
@@ -583,17 +589,18 @@ impl EngineSession {
         }
     }
 
-    fn try_hard_drop(&mut self) -> EngineResult {
-        let Some(piece) = self.snapshot.current_piece else {
+    fn try_hard_drop(&self) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
         };
 
         let mut drop = 0;
-        while !self.snapshot.board.check_collision(&piece, 0, drop + 1) {
+        while !snapshot.board.check_collision(&piece, 0, drop + 1) {
             drop += 1;
         }
 
@@ -616,28 +623,29 @@ impl EngineSession {
         self.lock_piece(new_piece, drop as u32, &mut events);
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events,
             error: None,
         }
     }
 
-    fn try_hold(&mut self) -> EngineResult {
-        if !self.snapshot.can_hold || self.snapshot.current_piece.is_none() {
+    fn try_hold(&self) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        if !snapshot.can_hold || snapshot.current_piece.is_none() {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: None,
             };
         }
 
-        let current_type = self.snapshot.current_piece.as_ref().unwrap().piece_type;
-        let held = self.snapshot.held_piece.take();
+        let current_type = snapshot.current_piece.as_ref().unwrap().piece_type;
+        let held = snapshot.held_piece.take();
 
         let new_piece_type = if let Some(h) = held {
             h
         } else {
-            self.snapshot.randomizer.next()
+            snapshot.randomizer.next()
         };
 
         let (sx, sy) = new_piece_type.spawn_pos();
@@ -647,20 +655,20 @@ impl EngineSession {
             y: sy,
             rotation: 0,
         };
-        let game_over = self.snapshot.board.check_collision(&new_piece, 0, 0);
+        let game_over = snapshot.board.check_collision(&new_piece, 0, 0);
 
         if held.is_none() {
-            self.snapshot.next_pieces = self.snapshot.randomizer.peek(3);
+            snapshot.next_pieces = snapshot.randomizer.peek(3);
         }
 
-        self.snapshot.current_piece = if game_over { None } else { Some(new_piece) };
-        self.snapshot.held_piece = Some(current_type);
-        self.snapshot.can_hold = false;
-        self.snapshot.game_over = game_over;
-        self.snapshot.last_action = LastAction::Hold;
-        self.snapshot.last_rotation_transition = None;
-        self.snapshot.kick_index = None;
-        self.snapshot.lock_delay = LockDelayState::new();
+        snapshot.current_piece = if game_over { None } else { Some(new_piece) };
+        snapshot.held_piece = Some(current_type);
+        snapshot.can_hold = false;
+        snapshot.game_over = game_over;
+        snapshot.last_action = LastAction::Hold;
+        snapshot.last_rotation_transition = None;
+        snapshot.kick_index = None;
+        snapshot.lock_delay = LockDelayState::new();
 
         let mut events = vec![EngineEvent {
             kind: EngineEventKind::Held,
@@ -678,27 +686,28 @@ impl EngineSession {
             events.push(EngineEvent {
                 kind: EngineEventKind::Spawned,
                 value: 0,
-                piece: self.snapshot.current_piece.as_ref().map(|p| p.piece_type),
+                piece: snapshot.current_piece.as_ref().map(|p| p.piece_type),
             });
         }
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events,
             error: None,
         }
     }
 
-    fn try_lock(&mut self) -> EngineResult {
-        let Some(piece) = self.snapshot.current_piece else {
+    fn try_lock(&self) -> EngineResult {
+        let mut snapshot = self.snapshot.borrow_mut();
+        let Some(piece) = snapshot.current_piece else {
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events: vec![],
                 error: Some(EngineError::GameOver),
             };
         };
 
-        if self.snapshot.board.check_collision(&piece, 0, 1) {
+        if snapshot.board.check_collision(&piece, 0, 1) {
             let mut events = vec![EngineEvent {
                 kind: EngineEventKind::Locked,
                 value: 0,
@@ -706,47 +715,49 @@ impl EngineSession {
             }];
             self.lock_piece(piece, 0, &mut events);
             return EngineResult {
-                snapshot: self.snapshot.clone(),
+                snapshot: snapshot.clone(),
                 events,
                 error: None,
             };
         }
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events: vec![],
             error: None,
         }
     }
 
     fn lock_piece(
-        &mut self,
+        &self,
         piece: PieceState,
         hard_drop_cells: u32,
         events: &mut Vec<EngineEvent>,
+        snapshot: &mut SnapshotContract,
     ) {
         for (dx, dy) in piece.piece_type.shape(piece.rotation) {
-            self.snapshot
+            snapshot
                 .board
                 .set(piece.x + dx, piece.y + dy, piece.piece_type as u8 + 1);
         }
 
-        let lines_cleared = self.clear_lines();
-        self.snapshot.lines += lines_cleared;
+        let lines_cleared = self.clear_lines(snapshot);
+        snapshot.lines += lines_cleared;
 
-        let tspin_kind = self.classify_tspin(&piece);
+        let tspin_kind = self.classify_tspin(&piece, snapshot);
         let clear_kind = self.determine_clear_kind(lines_cleared, tspin_kind);
         let score_result = self.score_lock(
             clear_kind,
             lines_cleared,
-            self.snapshot.soft_drop_cells,
+            snapshot.soft_drop_cells,
             hard_drop_cells,
+            snapshot,
         );
 
-        self.snapshot.score = score_result.score;
-        self.snapshot.combo = score_result.combo;
-        self.snapshot.back_to_back = score_result.back_to_back;
-        self.snapshot.soft_drop_cells = 0;
+        snapshot.score = score_result.score;
+        snapshot.combo = score_result.combo;
+        snapshot.back_to_back = score_result.back_to_back;
+        snapshot.soft_drop_cells = 0;
 
         if lines_cleared > 0 {
             events.push(EngineEvent {
@@ -756,19 +767,19 @@ impl EngineSession {
             });
         }
 
-        self.spawn_next_piece(events);
+        self.spawn_next_piece(events, snapshot);
     }
 
-    fn clear_lines(&mut self) -> u32 {
-        let width = self.snapshot.board.width;
-        let height = self.snapshot.board.height;
+    fn clear_lines(&self, snapshot: &mut SnapshotContract) -> u32 {
+        let width = snapshot.board.width;
+        let height = snapshot.board.height;
         let mut new_cells = Vec::new();
         let mut lines_cleared = 0;
 
         for y in (0..height).rev() {
             let mut full = true;
             for x in 0..width {
-                if self.snapshot.board.get(x as i32, y as i32) == 0 {
+                if snapshot.board.get(x as i32, y as i32) == 0 {
                     full = false;
                     break;
                 }
@@ -777,7 +788,7 @@ impl EngineSession {
                 lines_cleared += 1;
             } else {
                 for x in 0..width {
-                    new_cells.push(self.snapshot.board.get(x as i32, y as i32));
+                    new_cells.push(snapshot.board.get(x as i32, y as i32));
                 }
             }
         }
@@ -787,15 +798,15 @@ impl EngineSession {
         }
 
         new_cells.reverse();
-        self.snapshot.board.cells = new_cells;
+        snapshot.board.cells = new_cells;
         lines_cleared
     }
 
-    fn classify_tspin(&self, piece: &PieceState) -> TSpinKind {
+    fn classify_tspin(&self, piece: &PieceState, snapshot: &SnapshotContract) -> TSpinKind {
         if piece.piece_type != PieceType::T {
             return TSpinKind::None;
         }
-        if self.snapshot.last_action != LastAction::Rotate {
+        if snapshot.last_action != LastAction::Rotate {
             return TSpinKind::None;
         }
 
@@ -804,7 +815,7 @@ impl EngineSession {
         let corners = [(-1, -1), (1, -1), (-1, 1), (1, 1)];
         let mut occupied = 0;
         for (dx, dy) in corners {
-            if self.snapshot.board.is_occupied(pivot_x + dx, pivot_y + dy) {
+            if snapshot.board.is_occupied(pivot_x + dx, pivot_y + dy) {
                 occupied += 1;
             }
         }
@@ -836,11 +847,12 @@ impl EngineSession {
     }
 
     fn score_lock(
-        &mut self,
+        &self,
         kind: ClearKind,
         lines: u32,
         soft_drop: u32,
         hard_drop: u32,
+        snapshot: &SnapshotContract,
     ) -> ScoreState {
         let base = match kind {
             ClearKind::None => 0,
@@ -864,14 +876,14 @@ impl EngineSession {
                 | ClearKind::TSpinTriple
                 | ClearKind::TSpinMiniSingle
         );
-        let b2b_bonus = if qualifies_b2b && self.snapshot.back_to_back {
+        let b2b_bonus = if qualifies_b2b && snapshot.back_to_back {
             ((base as f64) * 0.5) as u64
         } else {
             0
         };
 
         let combo = if lines > 0 {
-            self.snapshot.combo + 1
+            snapshot.combo + 1
         } else {
             -1
         };
@@ -883,12 +895,12 @@ impl EngineSession {
 
         let drop_score = soft_drop as u64 + hard_drop as u64 * 2;
 
-        let new_score = self.snapshot.score + base + b2b_bonus + combo_bonus + drop_score;
+        let new_score = snapshot.score + base + b2b_bonus + combo_bonus + drop_score;
         let new_combo = combo;
         let new_back_to_back = if lines > 0 {
-            qualifies_b2b || (self.snapshot.back_to_back && qualifies_b2b)
+            qualifies_b2b || (snapshot.back_to_back && qualifies_b2b)
         } else {
-            self.snapshot.back_to_back
+            snapshot.back_to_back
         };
 
         ScoreState {
@@ -898,8 +910,8 @@ impl EngineSession {
         }
     }
 
-    fn spawn_next_piece(&mut self, events: &mut Vec<EngineEvent>) {
-        let piece_type = self.snapshot.randomizer.next();
+    fn spawn_next_piece(&self, events: &mut Vec<EngineEvent>, snapshot: &mut SnapshotContract) {
+        let piece_type = snapshot.randomizer.next();
         let (sx, sy) = piece_type.spawn_pos();
         let new_piece = PieceState {
             piece_type,
@@ -907,14 +919,14 @@ impl EngineSession {
             y: sy,
             rotation: 0,
         };
-        let game_over = self.snapshot.board.check_collision(&new_piece, 0, 0);
+        let game_over = snapshot.board.check_collision(&new_piece, 0, 0);
 
-        self.snapshot.next_pieces = self.snapshot.randomizer.peek(3);
-        self.snapshot.current_piece = if game_over { None } else { Some(new_piece) };
-        self.snapshot.can_hold = true;
-        self.snapshot.game_over = game_over;
-        self.snapshot.last_action = LastAction::Spawn;
-        self.snapshot.lock_delay = LockDelayState::new();
+        snapshot.next_pieces = snapshot.randomizer.peek(3);
+        snapshot.current_piece = if game_over { None } else { Some(new_piece) };
+        snapshot.can_hold = true;
+        snapshot.game_over = game_over;
+        snapshot.last_action = LastAction::Spawn;
+        snapshot.lock_delay = LockDelayState::new();
 
         if game_over {
             events.push(EngineEvent {
@@ -932,21 +944,21 @@ impl EngineSession {
     }
 
     #[allow(dead_code)]
-    fn compute_checksum(&self) -> String {
+    fn compute_checksum(&self, snapshot: &SnapshotContract) -> String {
         let mut hash: u32 = 2166136261;
-        for &b in &self.snapshot.board.cells {
+        for &b in &snapshot.board.cells {
             hash ^= b as u32;
             hash = hash.wrapping_mul(16777619);
         }
-        for b in self.snapshot.score.to_le_bytes() {
+        for b in snapshot.score.to_le_bytes() {
             hash ^= b as u32;
             hash = hash.wrapping_mul(16777619);
         }
-        for b in self.snapshot.lines.to_le_bytes() {
+        for b in snapshot.lines.to_le_bytes() {
             hash ^= b as u32;
             hash = hash.wrapping_mul(16777619);
         }
-        hash ^= self.snapshot.game_over as u32;
+        hash ^= snapshot.game_over as u32;
         hash = hash.wrapping_mul(16777619);
         format!("{:08x}", hash)
     }
@@ -1445,8 +1457,9 @@ mod tests {
         assert_eq!(filled, 4);
 
         // Also verify the Rust compute_checksum is deterministic
-        let checksum1 = session.compute_checksum();
-        let checksum2 = session.compute_checksum();
+        let snapshot = session.snapshot();
+        let checksum1 = session.compute_checksum(&snapshot);
+        let checksum2 = session.compute_checksum(&snapshot);
         assert_eq!(
             checksum1, checksum2,
             "compute_checksum must be deterministic"
