@@ -2,9 +2,6 @@
 //! Offline-only: no networking, authentication, or service integration.
 
 #[cfg(not(feature = "wasm"))]
-use uniffi_macros::{Enum, Record};
-
-#[cfg(not(feature = "wasm"))]
 uniffi::include_scaffolding!("tetrio_mobile");
 
 #[cfg(feature = "wasm")]
@@ -13,7 +10,6 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 pub use wasm_ffi::*;
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Record))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoardSize {
@@ -21,7 +17,6 @@ pub struct BoardSize {
     pub height: u16,
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Record))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EngineCapabilities {
@@ -30,7 +25,6 @@ pub struct EngineCapabilities {
     pub network: bool,
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Enum))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandKind {
@@ -45,7 +39,6 @@ pub enum CommandKind {
     Tick,
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Record))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EngineCommand {
@@ -53,7 +46,6 @@ pub struct EngineCommand {
     pub delta_ms: u32,
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Enum))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
@@ -157,7 +149,6 @@ impl PieceType {
     }
 }
 
-#[cfg_attr(not(feature = "wasm"), derive(uniffi_macros::Record))]
 #[cfg_attr(feature = "wasm", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoardState {
@@ -393,27 +384,40 @@ pub struct EngineResult {
 }
 
 pub struct EngineSession {
+    state: std::sync::Mutex<EngineSessionState>,
+}
+
+struct EngineSessionState {
     snapshot: SnapshotContract,
 }
 
 impl EngineSession {
     pub fn new(initial: SnapshotContract) -> Self {
-        EngineSession { snapshot: initial }
-    }
-
-    pub fn capabilities() -> EngineCapabilities {
-        EngineCapabilities {
-            replay: true,
-            deterministic_rng: true,
-            network: false,
+        EngineSession {
+            state: std::sync::Mutex::new(EngineSessionState { snapshot: initial }),
         }
     }
 
-    pub fn snapshot(&self) -> SnapshotContract {
-        self.snapshot.clone()
+    pub fn capabilities(&self) -> EngineCapabilities {
+        capabilities()
     }
 
-    pub fn apply_command(&mut self, command: EngineCommand) -> EngineResult {
+    pub fn snapshot(&self) -> SnapshotContract {
+        self.state.lock().unwrap().snapshot.clone()
+    }
+
+    pub fn apply_command(&self, command: EngineCommand) -> EngineResult {
+        self.state.lock().unwrap().apply_command(command)
+    }
+
+    #[allow(dead_code)]
+    fn compute_checksum(&self) -> String {
+        self.state.lock().unwrap().compute_checksum()
+    }
+}
+
+impl EngineSessionState {
+    fn apply_command(&mut self, command: EngineCommand) -> EngineResult {
         if self.snapshot.game_over {
             return EngineResult {
                 snapshot: self.snapshot.clone(),
@@ -1098,7 +1102,8 @@ mod tests {
 
     #[test]
     fn capabilities_returns_expected() {
-        let caps = EngineSession::capabilities();
+        let session = EngineSession::new(initial_snapshot());
+        let caps = session.capabilities();
         assert!(caps.replay);
         assert!(caps.deterministic_rng);
         assert!(!caps.network);
@@ -1273,7 +1278,6 @@ mod tests {
         assert!(!result.snapshot.can_hold);
     }
 
-    #[test]
     #[test]
     fn replay_golden_001_reproduces_checksum() {
         let snapshot = initial_snapshot();
@@ -1454,7 +1458,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn game_over_on_spawn_collision() {
         let mut snapshot = initial_snapshot();
         // Fill the top rows completely so any new piece spawns in collision
@@ -1598,7 +1601,7 @@ pub mod wasm_ffi {
 
     #[wasm_bindgen]
     pub fn engine_session_capabilities() -> JsValue {
-        let caps = EngineSession::capabilities();
+        let caps = capabilities();
         serde_wasm_bindgen::to_value(&caps).unwrap()
     }
 
