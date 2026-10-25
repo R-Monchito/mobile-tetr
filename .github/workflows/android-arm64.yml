@@ -23,6 +23,7 @@ jobs:
       - name: Install Android NDK
         uses: android-actions/setup-android@v3
         with:
+          packages: platform-tools
           ndk-version: r27
 
       - name: Cache Cargo
