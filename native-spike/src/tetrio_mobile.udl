@@ -2,15 +2,15 @@ namespace tetrio_mobile_core {
 };
 
 enum CommandKind {
-  "move_left",
-  "move_right",
-  "soft_drop",
-  "hard_drop",
-  "rotate_cw",
-  "rotate_ccw",
-  "rotate_180",
-  "hold",
-  "tick",
+  "MoveLeft",
+  "MoveRight",
+  "SoftDrop",
+  "HardDrop",
+  "RotateCw",
+  "RotateCcw",
+  "Rotate180",
+  "Hold",
+  "Tick",
 };
 
 dictionary EngineCommand {
@@ -39,7 +39,7 @@ dictionary RandomizerState {
   u32 seed;
 };
 
-enum LastAction { "spawn", "move", "rotate", "drop", "hold", "lock" };
+enum LastAction { "Spawn", "Move", "Rotate", "Drop", "Hold", "Lock" };
 
 dictionary LockDelayState {
   u32 elapsed_ms;
@@ -74,15 +74,15 @@ dictionary EngineCapabilities {
 };
 
 enum EngineEventKind {
-  "spawned",
-  "moved",
-  "rotated",
-  "soft_dropped",
-  "hard_dropped",
-  "locked",
-  "lines_cleared",
-  "held",
-  "game_over",
+  "Spawned",
+  "Moved",
+  "Rotated",
+  "SoftDropped",
+  "HardDropped",
+  "Locked",
+  "LinesCleared",
+  "Held",
+  "GameOver",
 };
 
 dictionary EngineEvent {
@@ -91,7 +91,7 @@ dictionary EngineEvent {
   PieceType? piece;
 };
 
-enum EngineError { "invalid_board", "game_over", "invalid_command" };
+enum EngineError { "InvalidBoard", "GameOver", "InvalidCommand" };
 
 dictionary EngineResult {
   SnapshotContract snapshot;
