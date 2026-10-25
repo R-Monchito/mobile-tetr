@@ -391,15 +391,15 @@ pub struct EngineResult {
     pub error: Option<EngineError>,
 }
 
-use std::cell::RefCell;
+use std::sync::RwLock;
 
 pub struct EngineSession {
-    snapshot: RefCell<SnapshotContract>,
+    snapshot: RwLock<SnapshotContract>,
 }
 
 impl EngineSession {
     pub fn new(initial: SnapshotContract) -> Self {
-        EngineSession { snapshot: RefCell::new(initial) }
+        EngineSession { snapshot: RwLock::new(initial) }
     }
 
     pub fn capabilities(&self) -> EngineCapabilities {
@@ -411,11 +411,11 @@ impl EngineSession {
     }
 
     pub fn snapshot(&self) -> SnapshotContract {
-        self.snapshot.borrow().clone()
+        self.snapshot.read().unwrap().clone()
     }
 
     pub fn apply_command(&self, command: EngineCommand) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         if snapshot.game_over {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -438,7 +438,7 @@ impl EngineSession {
     }
 
     fn handle_tick(&self, delta_ms: u32) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -462,7 +462,7 @@ impl EngineSession {
     }
 
     fn try_move(&self, dx: i32) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -500,7 +500,7 @@ impl EngineSession {
     }
 
     fn try_rotate(&self, rot_delta: u8) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -546,7 +546,7 @@ impl EngineSession {
     }
 
     fn try_soft_drop(&self) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(mut piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -590,7 +590,7 @@ impl EngineSession {
     }
 
     fn try_hard_drop(&self) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -620,7 +620,7 @@ impl EngineSession {
             },
         ];
 
-        self.lock_piece(new_piece, drop as u32, &mut events, snapshot);
+        self.lock_piece(new_piece, drop as u32, &mut events, &mut *snapshot);
 
         EngineResult {
             snapshot: snapshot.clone(),
@@ -630,7 +630,7 @@ impl EngineSession {
     }
 
     fn try_hold(&self) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         if !snapshot.can_hold || snapshot.current_piece.is_none() {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -698,7 +698,7 @@ impl EngineSession {
     }
 
     fn try_lock(&self) -> EngineResult {
-        let mut snapshot = self.snapshot.borrow_mut();
+        let mut snapshot = self.snapshot.write().unwrap();
         let Some(piece) = snapshot.current_piece else {
             return EngineResult {
                 snapshot: snapshot.clone(),
@@ -713,7 +713,7 @@ impl EngineSession {
                 value: 0,
                 piece: Some(piece.piece_type),
             }];
-            self.lock_piece(piece, 0, &mut events, snapshot);
+            self.lock_piece(piece, 0, &mut events, &mut *snapshot);
             return EngineResult {
                 snapshot: snapshot.clone(),
                 events,
