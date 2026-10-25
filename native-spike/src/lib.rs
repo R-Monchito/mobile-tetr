@@ -527,7 +527,7 @@ impl EngineSession {
                 snapshot.kick_index = Some(i as u8);
 
                 return EngineResult {
-                    snapshot: self.snapshot.clone(),
+                    snapshot: snapshot.clone(),
                     events: vec![EngineEvent {
                         kind: EngineEventKind::Rotated,
                         value: rot_delta as u32,
@@ -539,7 +539,7 @@ impl EngineSession {
         }
 
         EngineResult {
-            snapshot: self.snapshot.clone(),
+            snapshot: snapshot.clone(),
             events: vec![],
             error: None,
         }
@@ -620,7 +620,7 @@ impl EngineSession {
             },
         ];
 
-        self.lock_piece(new_piece, drop as u32, &mut events);
+        self.lock_piece(new_piece, drop as u32, &mut events, snapshot);
 
         EngineResult {
             snapshot: snapshot.clone(),
@@ -713,7 +713,7 @@ impl EngineSession {
                 value: 0,
                 piece: Some(piece.piece_type),
             }];
-            self.lock_piece(piece, 0, &mut events);
+            self.lock_piece(piece, 0, &mut events, snapshot);
             return EngineResult {
                 snapshot: snapshot.clone(),
                 events,
