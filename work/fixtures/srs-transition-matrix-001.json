@@ -1,0 +1,16 @@
+{
+  "id": "srs-transition-matrix-001",
+  "rulesVersion": "srs-draft-v1",
+  "provenance": "rules-review.md",
+  "status": "unverified",
+  "families": {
+    "JLSTZ": ["0->1","1->0","1->2","2->1","2->3","3->2","3->0","0->3"],
+    "I": ["0->1","1->0","1->2","2->1","2->3","3->2","3->0","0->3"],
+    "O": ["0->1","1->2","2->3","3->0"]
+  },
+  "expected": {
+    "kickCandidates": 5,
+    "rejectionIsAtomic": true,
+    "yAxisConvention": "engine-y-down"
+  }
+}

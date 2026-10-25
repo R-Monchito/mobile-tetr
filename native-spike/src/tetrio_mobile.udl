@@ -1,0 +1,107 @@
+namespace tetrio_mobile_core {
+};
+
+enum CommandKind {
+  "move_left",
+  "move_right",
+  "soft_drop",
+  "hard_drop",
+  "rotate_cw",
+  "rotate_ccw",
+  "rotate_180",
+  "hold",
+  "tick",
+};
+
+dictionary EngineCommand {
+  CommandKind kind;
+  u32 delta_ms;
+};
+
+enum PieceType { "I", "J", "L", "O", "S", "T", "Z" };
+
+dictionary BoardState {
+  u16 width;
+  u16 height;
+  sequence<u8> cells;
+};
+
+dictionary PieceState {
+  PieceType piece_type;
+  i32 x;
+  i32 y;
+  u8 rotation;
+};
+
+dictionary RandomizerState {
+  sequence<PieceType> bag;
+  u32 index;
+  u32 seed;
+};
+
+enum LastAction { "spawn", "move", "rotate", "drop", "hold", "lock" };
+
+dictionary LockDelayState {
+  u32 elapsed_ms;
+  u32 resets;
+  boolean locked;
+};
+
+dictionary SnapshotContract {
+  BoardState board;
+  u64 score;
+  u32 lines;
+  boolean game_over;
+  PieceState? current_piece;
+  sequence<PieceType> next_pieces;
+  PieceType? held_piece;
+  boolean can_hold;
+  RandomizerState randomizer;
+  LastAction last_action;
+  string? last_rotation_transition;
+  u8? kick_index;
+  LockDelayState lock_delay;
+  i32 combo;
+  boolean back_to_back;
+  string ruleset_version;
+  u32 soft_drop_cells;
+};
+
+dictionary EngineCapabilities {
+  boolean replay;
+  boolean deterministic_rng;
+  boolean network;
+};
+
+enum EngineEventKind {
+  "spawned",
+  "moved",
+  "rotated",
+  "soft_dropped",
+  "hard_dropped",
+  "locked",
+  "lines_cleared",
+  "held",
+  "game_over",
+};
+
+dictionary EngineEvent {
+  EngineEventKind kind;
+  u32 value;
+  PieceType? piece;
+};
+
+enum EngineError { "invalid_board", "game_over", "invalid_command" };
+
+dictionary EngineResult {
+  SnapshotContract snapshot;
+  sequence<EngineEvent> events;
+  EngineError? error;
+};
+
+interface EngineSession {
+  constructor(SnapshotContract initial);
+  EngineCapabilities capabilities();
+  SnapshotContract snapshot();
+  EngineResult apply_command(EngineCommand command);
+};

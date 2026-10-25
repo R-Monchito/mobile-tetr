@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-10-24T22:23:43.088Z",
+  "goldenReplay": {
+    "seed": 424242,
+    "commands": [
+      "moveLeft",
+      "rotateCW",
+      "hardDrop"
+    ],
+    "expectedChecksum": "aca04ded"
+  },
+  "platforms": [
+    {
+      "platform": "web-typescript",
+      "checksum": "aca04ded",
+      "verified": true,
+      "performance": {
+        "p50Ms": 0.002,
+        "p95Ms": 0.02,
+        "p99Ms": 0.253,
+        "avgMs": 0.013,
+        "maxMs": 0.711,
+        "frameBudgetMs": 16.667,
+        "framesOverBudget": 0,
+        "frameBudgetPercent": 0
+      }
+    },
+    {
+      "platform": "android-ios-rust-core",
+      "checksum": "aca04ded",
+      "verified": true,
+      "performance": {
+        "p50Ms": 0.294,
+        "p95Ms": 0.483,
+        "p99Ms": 0.496,
+        "avgMs": 0.294,
+        "maxMs": 0.497,
+        "frameBudgetMs": 16.667,
+        "framesOverBudget": 0,
+        "frameBudgetPercent": 0
+      }
+    },
+    {
+      "platform": "web-wasm",
+      "checksum": "aca04ded",
+      "verified": true,
+      "performance": {
+        "p50Ms": 1.451,
+        "p95Ms": 2.323,
+        "p99Ms": 2.433,
+        "avgMs": 1.44,
+        "maxMs": 2.499,
+        "frameBudgetMs": 16.667,
+        "framesOverBudget": 0,
+        "frameBudgetPercent": 0
+      }
+    }
+  ],
+  "allVerified": true
+}

@@ -1,0 +1,21 @@
+{
+  "name": "tetrio-mobile-local-engine",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:engine": "node --experimental-strip-types work/engine.test.ts",
+    "test:replay": "node --experimental-strip-types work/replay.test.ts",
+    "test:scoring": "node --experimental-strip-types work/scoring.test.ts",
+    "test:engine-scoring": "node --experimental-strip-types work/engine-scoring.test.ts",
+    "test:fixtures": "node --experimental-strip-types work/fixtures.test.ts",
+    "test:srs": "node --experimental-strip-types work/srs-matrix.test.ts",
+    "test:srs-boundary": "node --experimental-strip-types work/srs-boundary.test.ts",
+    "test:tspin": "node --experimental-strip-types work/tspin.test.ts",
+    "test:lock-delay": "node --experimental-strip-types work/lock-delay.test.ts",
+    "test:input-adapter": "node --experimental-strip-types work/input-adapter.test.ts",
+    "benchmark:engine": "node --experimental-strip-types work/benchmark.ts",
+    "test:native-abi": "node --experimental-strip-types work/native-abi.test.ts",
+    "test:abi-contract": "node native-spike/validate-abi.mjs",
+    "test": "npm run test:engine && npm run test:replay && npm run test:scoring && npm run test:engine-scoring && npm run test:fixtures && npm run test:srs && npm run test:srs-boundary && npm run test:tspin && npm run test:lock-delay && npm run test:input-adapter && npm run test:native-abi && npm run test:abi-contract"
+  }
+}

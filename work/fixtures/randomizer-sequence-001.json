@@ -1,0 +1,9 @@
+{
+  "id": "randomizer-sequence-001",
+  "rulesVersion": "randomizer-draft-v1",
+  "provenance": "work/engine.ts createRandomizer/nextPiece",
+  "status": "executable-draft",
+  "algorithm": "draft-7bag-lcg",
+  "seed": 424242,
+  "expected": { "pieces": ["J", "S", "S", "O", "O", "L", "O", "O", "T", "Z", "O", "J", "O", "O"] }
+}

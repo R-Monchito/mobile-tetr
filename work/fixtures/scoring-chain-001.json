@@ -1,0 +1,7 @@
+{
+  "id": "scoring-chain-001",
+  "rulesVersion": "guideline-draft-v1",
+  "provenance": "local-scoring-policy",
+  "commands": ["tetris","tetris","no-line"],
+  "expected": {"firstCombo":0,"secondUsesBackToBack":true,"noLineResetsCombo":true}
+}

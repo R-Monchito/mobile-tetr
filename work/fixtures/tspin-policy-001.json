@@ -1,0 +1,8 @@
+{
+  "id": "tspin-policy-001",
+  "rulesVersion": "tspin-draft-v1",
+  "provenance": "work/tspin.test.ts",
+  "status": "executable",
+  "input": { "piece": { "type": "T", "x": 3, "y": 20, "rotation": 0 }, "lastAction": "rotate", "occupiedCorners": 3 },
+  "expected": { "default": "mini", "movementAction": "none", "fullPolicy": "full" }
+}

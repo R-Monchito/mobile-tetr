@@ -1,0 +1,42 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node.js
+node_modules/
+dist/
+build/
+*.log
+
+# Android
+platform/android/app/build/
+platform/android/.gradle/
+platform/android/local.properties
+platform/android/gradle/wrapper/gradle-wrapper.jar
+
+# iOS
+platform/ios/TetrioMobileCore.xcframework/
+*.xcframework/
+
+# WebAssembly
+platform/web/pkg/
+platform/web/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# NDK
+android-ndk-*/
+ndk.zip
+
+# Env
+.env
+.env.local

@@ -1,0 +1,25 @@
+[package]
+name = "tetrio-mobile-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "tetrio_mobile_core"
+
+[build-dependencies]
+uniffi = { version = "0.32", features = ["build"] }
+uniffi_build = "0.32"
+
+[dependencies]
+uniffi = { version = "0.32", features = ["default"] }
+uniffi_macros = { version = "0.32", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+serde = { version = "1.0", optional = true, features = ["derive"] }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+once_cell = { version = "1.19", optional = true }
+
+[features]
+default = ["uniffi_macros"]
+wasm = ["wasm-bindgen", "serde", "serde-wasm-bindgen", "once_cell"]

@@ -1,0 +1,8 @@
+{
+  "id": "soft-drop-scoring-001",
+  "rulesVersion": "guideline-draft-v1",
+  "provenance": "work/scoring.test.ts",
+  "status": "executable",
+  "input": { "kind": "single", "lines": 1, "softDropCells": 7, "hardDropCells": 3 },
+  "expected": { "base": 100, "dropScore": 13, "totalDelta": 113, "combo": 0 }
+}

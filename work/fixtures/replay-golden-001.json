@@ -1,0 +1,9 @@
+{
+  "id": "replay-golden-001",
+  "rulesVersion": "draft",
+  "provenance": "work/replay.test.ts",
+  "status": "executable",
+  "seed": 424242,
+  "commands": ["moveLeft", "rotateCW", "hardDrop"],
+  "expected": { "checksum": "aca04ded" }
+}

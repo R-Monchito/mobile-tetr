@@ -1,0 +1,15 @@
+{
+  "id": "replay-seed-sequence-001",
+  "rulesVersion": "guideline-draft-v1",
+  "provenance": "local-replay-test",
+  "seed": 424242,
+  "commands": [
+    {"type":"moveLeft"},
+    {"type":"rotateCW"},
+    {"type":"hardDrop"}
+  ],
+  "expected": {
+    "deterministic": true,
+    "checksumRequired": true
+  }
+}
